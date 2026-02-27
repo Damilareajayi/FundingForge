@@ -12,9 +12,9 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
         />
       </div>
       {!compact && (
-        <div className="leading-tight">
-          <div className="text-[13px] font-semibold tracking-tight">FundingForge</div>
-          <div className="text-[11px] text-muted-foreground">FSU · Discovery to packet</div>
+        <div className="flex items-center font-serif text-xl tracking-tight">
+          <span className="text-primary">Funding</span>
+          <span className="text-accent">Forge</span>
         </div>
       )}
     </div>
