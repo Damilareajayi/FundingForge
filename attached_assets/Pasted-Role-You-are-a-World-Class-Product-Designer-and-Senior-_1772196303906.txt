@@ -1,0 +1,53 @@
+Role: You are a World-Class Product Designer and Senior Full-Stack Engineer.
+Objective: Build a high-fidelity, interactive React/Next.js prototype for FundingForge, an AI-powered funding engine for Florida State University.
+
+1. Brand Identity & Visual Vibe
+Base Theme: Modern "Dark Mode" or "Clean Glassmorphism." The primary aesthetic should be premium and high-tech (think SpaceX or Apple).
+
+FSU Integration: Use FSU Garnet (#78281F) and FSU Gold (#CEB888) as secondary and accent colors only. Use them for "Action" buttons, progress bars, and high-fidelity glows.
+
+Community Cues: Subtly incorporate FSU motifs (e.g., a faint watermark of Westcott Fountain or the "Unconquered" spear as a divider).
+
+Logo: I have attached the logo. Place it prominently in the top-left corner within a "frosted glass" navigation bar.
+
+2. The "Three-Click" Interactive Workflow
+The app must feel alive. Use Framer Motion for smooth transitions between these three states:
+
+State 1: The Intake (View A):
+
+Show a centered, elegant "Selection Portal."
+
+Dropdowns for: Role (Faculty, PhD, Undergrad), Year (Freshman to Tenured), and Program (e.g., Instructional Systems).
+
+Include a "Forge My Profile" button with a golden glow.
+
+State 2: The Discovery Dashboard:
+
+Once clicked, transition into a grid of "Grant Cards."
+
+Each card displays: Grant Name (e.g., NSF-GRFP), a Match Score %, and an "FSU Internal Deadline" badge.
+
+When a card is hovered, it should subtly scale up and show a "Compliance Preview" (Green/Yellow/Red indicators).
+
+State 3: The Output (Final Packet):
+
+When a grant is selected, trigger a "Forging..." animation (visualize the AI agents working).
+
+Display three interactive result blocks:
+
+Proposal Draft: A scrollable text area with the auto-generated summary.
+
+Collaborator Mesh: A horizontal list of 3 FSU faculty avatars with matching interests.
+
+RAMP Checklist: A toggle-able list of FSU compliance tasks (IRB, COI, etc.).
+
+3. Technical Requirements
+Framework: Next.js + Tailwind CSS.
+
+Interactivity: Use an "Agentic Chat" sidebar on the right that explains what the AI is doing at each step (e.g., "Sourcing Agent is checking Policy 7A-19...").
+
+Responsiveness: Must be mobile-responsive but optimized for a high-end desktop dashboard.
+
+Action: Generate the code for the home page and the state-management logic to handle the transition from Intake to Output. Let’s make this the most polished tool at the FSU AI Maker Challenge.
+
+Next Step for Dami:
