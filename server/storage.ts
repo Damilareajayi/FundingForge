@@ -1,38 +1,28 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { grants, faculty, type Grant, type InsertGrant, type Faculty, type InsertFaculty } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getGrants(): Promise<Grant[]>;
+  createGrant(grant: InsertGrant): Promise<Grant>;
+  getFaculty(): Promise<Faculty[]>;
+  createFaculty(faculty: InsertFaculty): Promise<Faculty>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getGrants(): Promise<Grant[]> {
+    return await db.select().from(grants);
   }
-
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async createGrant(grant: InsertGrant): Promise<Grant> {
+    const [created] = await db.insert(grants).values(grant).returning();
+    return created;
   }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getFaculty(): Promise<Faculty[]> {
+    return await db.select().from(faculty);
   }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createFaculty(fac: InsertFaculty): Promise<Faculty> {
+    const [created] = await db.insert(faculty).values(fac).returning();
+    return created;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
