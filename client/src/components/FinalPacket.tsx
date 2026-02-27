@@ -101,7 +101,7 @@ export function FinalPacket({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.62fr_0.38fr] lg:items-start">
+        <div className="mt-6">
           <div className="space-y-6">
             <Card className="ff-grain rounded-2xl border border-border/60 bg-card/35 p-5 backdrop-blur">
               <div className="flex items-start justify-between gap-3">
@@ -183,10 +183,6 @@ export function FinalPacket({
             )}
 
             <RampChecklist />
-          </div>
-
-          <div className="lg:sticky lg:top-28">
-            <AgenticChat events={events} connected={connected} done={done} error={error} />
           </div>
         </div>
 

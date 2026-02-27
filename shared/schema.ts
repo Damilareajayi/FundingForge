@@ -17,6 +17,7 @@ export const faculty = pgTable("faculty", {
   department: text("department").notNull(),
   expertise: text("expertise").notNull(),
   imageUrl: text("image_url").notNull(),
+  bio: text("bio").default(""),
 });
 
 export const insertGrantSchema = createInsertSchema(grants).omit({ id: true });

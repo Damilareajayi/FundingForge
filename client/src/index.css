@@ -18,46 +18,46 @@
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
 
-  /* Base palette — space-separated HSL tokens */
-  --background: 230 35% 98%;
-  --foreground: 232 35% 14%;
+  /* Base palette — Adjusted for readability / Professional Blue */
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
 
-  --border: 230 20% 86%;
+  --border: 214 32% 91%;
 
   --card: 0 0% 100%;
-  --card-foreground: 232 35% 14%;
-  --card-border: 230 20% 86%;
+  --card-foreground: 222 47% 11%;
+  --card-border: 214 32% 91%;
 
-  --sidebar: 230 35% 97%;
-  --sidebar-foreground: 232 35% 14%;
-  --sidebar-border: 230 20% 86%;
+  --sidebar: 210 40% 96%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 91%;
   --sidebar-primary: 350 49% 31%; /* FSU garnet */
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 46 37% 63%; /* FSU gold */
-  --sidebar-accent-foreground: 232 35% 14%;
+  --sidebar-accent-foreground: 222 47% 11%;
   --sidebar-ring: 46 37% 63%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 232 35% 14%;
-  --popover-border: 230 20% 86%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 214 32% 91%;
 
-  --primary: 350 49% 31%; /* garnet */
-  --primary-foreground: 0 0% 100%;
+  --primary: 221 83% 53%; /* Professional Blue */
+  --primary-foreground: 210 40% 98%;
 
-  --secondary: 230 30% 95%;
-  --secondary-foreground: 232 35% 14%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222 47% 11.2%;
 
-  --muted: 230 30% 95%;
-  --muted-foreground: 232 12% 40%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
 
-  --accent: 46 37% 63%; /* gold */
-  --accent-foreground: 232 35% 14%;
+  --accent: 46 37% 63%; /* gold kept for action buttons */
+  --accent-foreground: 222 47% 11%;
 
-  --destructive: 0 76% 54%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
 
-  --input: 230 20% 86%;
-  --ring: 46 37% 63%;
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;
 
   --chart-1: 350 49% 31%;
   --chart-2: 46 37% 63%;

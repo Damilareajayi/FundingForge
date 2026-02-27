@@ -8,9 +8,10 @@ import { Sparkles, ChevronRight, GraduationCap, School, UserCog } from "lucide-r
 import { cn } from "@/lib/utils";
 
 export type IntakeProfile = {
-  role: "Faculty" | "PhD" | "Undergrad";
+  role: "Faculty" | "Grad Student" | "Undergrad";
   year: string;
   program: string;
+  cv?: File;
 };
 
 const roleCards = [
@@ -21,10 +22,10 @@ const roleCards = [
     blurb: "Pre-award routing, collaborators, and internal timelines — curated.",
   },
   {
-    role: "PhD" as const,
-    title: "PhD Student",
+    role: "Grad Student" as const,
+    title: "Grad Student",
     icon: GraduationCap,
-    blurb: "Fellowship targeting plus narrative scaffolding built for review panels.",
+    blurb: "Fellowship targeting plus narrative scaffolding built for PhD and MSc students.",
   },
   {
     role: "Undergrad" as const,
@@ -44,10 +45,11 @@ export function SelectionPortal({
   const [role, setRole] = useState<IntakeProfile["role"]>(initial?.role ?? "Faculty");
   const [year, setYear] = useState(initial?.year ?? "Year 1");
   const [program, setProgram] = useState(initial?.program ?? "Computer Science");
+  const [cv, setCv] = useState<File | null>(null);
 
   const years = useMemo(() => {
     if (role === "Undergrad") return ["Freshman", "Sophomore", "Junior", "Senior"];
-    if (role === "PhD") return ["Year 1", "Year 2", "Year 3", "Year 4+", "ABD"];
+    if (role === "Grad Student") return ["MSc Year 1", "MSc Year 2", "PhD Year 1", "PhD Year 2", "PhD Year 3", "PhD Year 4+", "ABD"];
     return ["Pre-tenure", "Tenure-track", "Tenured", "Research faculty"];
   }, [role]);
 
@@ -138,7 +140,7 @@ export function SelectionPortal({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Faculty">Faculty</SelectItem>
-                      <SelectItem value="PhD">PhD</SelectItem>
+                      <SelectItem value="Grad Student">Grad Student</SelectItem>
                       <SelectItem value="Undergrad">Undergrad</SelectItem>
                     </SelectContent>
                   </Select>
@@ -176,9 +178,29 @@ export function SelectionPortal({
                   </Select>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="cv-upload">Upload CV (Optional)</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="cv-upload"
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => setCv(e.target.files?.[0] || null)}
+                      accept=".pdf,.doc,.docx"
+                    />
+                    <Button
+                      variant="outline"
+                      className="w-full bg-background/40"
+                      onClick={() => document.getElementById("cv-upload")?.click()}
+                    >
+                      {cv ? cv.name : "Choose file"}
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="pt-2">
                   <Button
-                    onClick={() => onForge({ role, year, program })}
+                    onClick={() => onForge({ role, year, program, cv: cv || undefined })}
                     disabled={!canForge}
                     className={cn(
                       "w-full border border-accent/30 bg-accent text-accent-foreground",

@@ -62,9 +62,27 @@ export async function registerRoutes(
   const existingFaculty = await storage.getFaculty();
   if (existingFaculty.length === 0) {
     const facultyData = [
-      { name: "Dr. Sarah Chen", department: "Computer Science", expertise: "AI, Machine Learning", imageUrl: "https://i.pravatar.cc/150?u=sarah" },
-      { name: "Dr. Marcus Johnson", department: "Engineering", expertise: "Robotics, Control Systems", imageUrl: "https://i.pravatar.cc/150?u=marcus" },
-      { name: "Dr. Elena Rodriguez", department: "Information", expertise: "Human-Computer Interaction", imageUrl: "https://i.pravatar.cc/150?u=elena" }
+      { 
+        name: "Dr. Sarah Chen", 
+        department: "Computer Science", 
+        expertise: "AI, Machine Learning", 
+        imageUrl: "https://i.pravatar.cc/150?u=sarah",
+        bio: "Dr. Chen focuses on neural architecture search and ethical AI frameworks. She has secured over $5M in NSF funding since 2018."
+      },
+      { 
+        name: "Dr. Marcus Johnson", 
+        department: "Engineering", 
+        expertise: "Robotics, Control Systems", 
+        imageUrl: "https://i.pravatar.cc/150?u=marcus",
+        bio: "Specializing in autonomous marine robotics, Dr. Johnson leads the FSU Marine Robotics Lab with a focus on environmental monitoring."
+      },
+      { 
+        name: "Dr. Elena Rodriguez", 
+        department: "Information", 
+        expertise: "Human-Computer Interaction", 
+        imageUrl: "https://i.pravatar.cc/150?u=elena",
+        bio: "Dr. Rodriguez researches accessibility in digital interfaces, particularly for neurodivergent populations in educational settings."
+      }
     ];
     for (const f of facultyData) await storage.createFaculty(f);
   }
