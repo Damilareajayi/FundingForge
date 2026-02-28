@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-const API_BASE = "/api/forge";
 import { z } from "zod";
 
-export type ForgeEvent = z.infer<typeof streams.forge.chunk>;
+export const ForgeChunkSchema = z.object({
+  step: z.string(),
+  done: z.boolean(),
+  result: z.any().optional(),
+});
+
+export type ForgeEvent = z.infer<typeof ForgeChunkSchema>;
+
+export type ForgeProfile = {
+  role: string;
+  year: string;
+  program: string;
+  cvText?: string;
+};
 
 function parseSseLine(rawLine: string): unknown | null {
-  // Expect "data: {json}"
   const line = rawLine.trim();
   if (!line.startsWith("data:")) return null;
   const payload = line.slice(5).trim();
@@ -18,18 +29,26 @@ function parseSseLine(rawLine: string): unknown | null {
   }
 }
 
-export function useForgeStream(grantId: number | null, enabled: boolean) {
+export function useForgeStream(
+  grantId: number | null,
+  enabled: boolean,
+  profile?: ForgeProfile
+) {
   const [events, setEvents] = useState<ForgeEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const abortRef = useRef<AbortController | null>(null);
 
   const url = useMemo(() => {
     if (!grantId) return null;
-    return buildUrl(streams.forge.path, { grantId });
-  }, [grantId]);
+    const params = new URLSearchParams();
+    if (profile?.role) params.set("role", profile.role);
+    if (profile?.year) params.set("year", profile.year);
+    if (profile?.program) params.set("program", profile.program);
+    if (profile?.cvText) params.set("cvText", profile.cvText.slice(0, 2000));
+    return `/api/forge/${grantId}?${params.toString()}`;
+  }, [grantId, profile?.role, profile?.year, profile?.program, profile?.cvText]);
 
   useEffect(() => {
     if (!enabled || !url) return;
@@ -41,7 +60,6 @@ export function useForgeStream(grantId: number | null, enabled: boolean) {
 
     const controller = new AbortController();
     abortRef.current = controller;
-
     let cancelled = false;
 
     (async () => {
@@ -50,9 +68,7 @@ export function useForgeStream(grantId: number | null, enabled: boolean) {
           method: "GET",
           credentials: "include",
           signal: controller.signal,
-          headers: {
-            Accept: "text/event-stream",
-          },
+          headers: { Accept: "text/event-stream" },
         });
 
         if (!res.ok || !res.body) {
@@ -60,7 +76,6 @@ export function useForgeStream(grantId: number | null, enabled: boolean) {
         }
 
         setConnected(true);
-
         const reader = res.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
@@ -70,30 +85,18 @@ export function useForgeStream(grantId: number | null, enabled: boolean) {
           if (readerDone) break;
 
           buffer += decoder.decode(value, { stream: true });
-
-          // SSE messages separated by blank line
           const parts = buffer.split("\n\n");
           buffer = parts.pop() || "";
 
           for (const part of parts) {
-            const lines = part.split("\n");
-            for (const line of lines) {
+            for (const line of part.split("\n")) {
               const raw = parseSseLine(line);
               if (!raw) continue;
-
-              const parsed = streams.forge.chunk.safeParse(raw);
-              if (!parsed.success) {
-                console.error("[SSE] Chunk validation failed:", parsed.error.format(), raw);
-                continue;
-              }
-
-              const chunk = parsed.data;
+              const parsed = ForgeChunkSchema.safeParse(raw);
+              if (!parsed.success) continue;
               if (cancelled) return;
-
-              setEvents((prev) => [...prev, chunk]);
-              if (chunk.done) {
-                setDone(true);
-              }
+              setEvents((prev) => [...prev, parsed.data]);
+              if (parsed.data.done) setDone(true);
             }
           }
         }
@@ -113,6 +116,5 @@ export function useForgeStream(grantId: number | null, enabled: boolean) {
   }, [enabled, url]);
 
   const cancel = () => abortRef.current?.abort();
-
   return { events, connected, done, error, cancel };
 }
