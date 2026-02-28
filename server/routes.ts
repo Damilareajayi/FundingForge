@@ -2,13 +2,20 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
 
-// Initialize AWS Client
+// Initialize the AWS Client
+// SageMaker Execution Role automatically provides credentials if configured
 const bedrockClient = new BedrockAgentRuntimeClient({ 
   region: "us-east-1" 
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Add your API routes here
+  // 1. Grant Retrieval Route
+  app.get("/api/grants", async (_req, res) => {
+    // Your existing logic to fetch grants from storage
+    res.json({ success: true, data: [] }); 
+  });
+
+  // 2. The Main "Forge" Route for AWS Agents
   app.post("/api/forge", async (req, res) => {
     const { grantId, userInput, userId } = req.body;
 
@@ -17,7 +24,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         agentId: process.env.AWS_AGENT_ID,
         agentAliasId: process.env.AWS_AGENT_ALIAS_ID,
         sessionId: userId || "session-1",
-        inputText: `Grant ID: ${grantId}. Context: ${userInput}`,
+        inputText: `Grant ID: ${grantId}. Context: ${userInput}. Check FSU policies and directory.`,
       });
 
       const response = await bedrockClient.send(command);
@@ -25,18 +32,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let completion = "";
       if (response.completion) {
         for await (const chunk of response.completion) {
-          const text = new TextDecoder("utf-8").decode(chunk.chunk?.bytes);
-          completion += text;
+          if (chunk.chunk?.bytes) {
+            const text = new TextDecoder("utf-8").decode(chunk.chunk.bytes);
+            completion += text;
+          }
         }
       }
       res.json({ success: true, data: completion });
     } catch (error: any) {
-      console.error("AWS Error:", error);
+      console.error("AWS Bedrock Error:", error);
       res.status(500).json({ success: false, message: error.message });
     }
   });
 
-  // This line is CRUCIAL: It creates the server for index.ts to use
+  // This creates the HTTP server using the express app
   const httpServer = createServer(app);
   return httpServer;
 }
