@@ -9,18 +9,26 @@ const bedrockClient = new BedrockAgentRuntimeClient({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Use .get or .post directly on the 'app' object
+  // Standard API Routes
   app.get("/api/grants", async (_req, res) => {
-    const grants = await storage.getGrants();
-    res.json(grants);
+    try {
+      const grants = await storage.getGrants();
+      res.json(grants);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch grants" });
+    }
   });
 
   app.get("/api/faculty", async (_req, res) => {
-    const faculty = await storage.getFaculty();
-    res.json(faculty);
+    try {
+      const faculty = await storage.getFaculty();
+      res.json(faculty);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch faculty" });
+    }
   });
 
-  // This is the route for your AWS Agents
+  // AWS Agent Route
   app.post("/api/forge", async (req, res) => {
     const { grantId, userInput, userId } = req.body;
 
@@ -29,7 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         agentId: process.env.AWS_AGENT_ID,
         agentAliasId: process.env.AWS_AGENT_ALIAS_ID,
         sessionId: userId || "session-1",
-        inputText: `Grant ID: ${grantId}. Context: ${userInput}`,
+        inputText: `Grant: ${grantId}. Context: ${userInput}`,
       });
 
       const response = await bedrockClient.send(command);
@@ -38,19 +46,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (response.completion) {
         for await (const chunk of response.completion) {
           if (chunk.chunk?.bytes) {
-            const text = new TextDecoder("utf-8").decode(chunk.chunk.bytes);
-            completion += text;
+            completion += new TextDecoder("utf-8").decode(chunk.chunk.bytes);
           }
         }
       }
       res.json({ success: true, data: completion });
     } catch (error: any) {
-      console.error("AWS Bedrock Error:", error);
+      console.error("Bedrock Error:", error);
       res.status(500).json({ success: false, message: error.message });
     }
   });
 
-  // CRITICAL: This line creates the server and returns it to index.ts
+  // THIS IS THE CRITICAL PART: Return the server
   const httpServer = createServer(app);
   return httpServer;
 }
