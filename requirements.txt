@@ -1,0 +1,6 @@
+streamlit
+pypdf
+python-dotenv
+strands-agents
+boto3
+botocore
