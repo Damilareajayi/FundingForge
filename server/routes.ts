@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
 import { storage } from "./storage";
+import { queryKnowledgeBase, retrieveFromKnowledgeBase } from "./knowledgeBase";
 
 const bedrockClient = new BedrockAgentRuntimeClient({ region: "us-east-1" });
 
@@ -12,7 +13,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Fallback to avoid a crash if possible, or throw a clearer error
     throw new TypeError("app.get is not a function - check server/index.ts");
   }
+  // Query KB with AI-generated answer
+app.post("/api/knowledge-base/query", async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query) return res.status(400).json({ message: "Query is required" });
+    const result = await queryKnowledgeBase(query);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
+// Just retrieve raw chunks
+app.post("/api/knowledge-base/retrieve", async (req, res) => {
+  try {
+    const { query, numResults } = req.body;
+    if (!query) return res.status(400).json({ message: "Query is required" });
+    const results = await retrieveFromKnowledgeBase(query, numResults);
+    res.json({ results });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
   // Define your routes
   app.get("/api/grants", async (_req, res) => {
     const grants = await storage.getGrants();
