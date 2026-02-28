@@ -11,7 +11,11 @@ const viteLogger = createLogger();
 export async function setupVite(server: Server, app: Express) {
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server, path: "/vite-hmr" },
+    hmr: {
+      server,
+      clientPort: 443,
+      path: "/jupyterlab/default/proxy/5000/ws",
+    },
     allowedHosts: true as const,
   };
 
@@ -32,7 +36,11 @@ export async function setupVite(server: Server, app: Express) {
   app.use(vite.middlewares);
 
   app.use("/{*path}", async (req, res, next) => {
-    const url = req.originalUrl;
+    // Strip the SageMaker proxy prefix so Vite sees a clean URL
+    const url = req.originalUrl.replace(
+      /^\/jupyterlab\/default\/proxy\/5000/,
+      ""
+    ) || "/";
 
     try {
       const clientTemplate = path.resolve(
@@ -42,12 +50,12 @@ export async function setupVite(server: Server, app: Express) {
         "index.html",
       );
 
-      // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
+
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
