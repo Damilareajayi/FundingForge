@@ -27,11 +27,12 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5000,
-    strictPort: true, 
+    strictPort: true,
     hmr: {
-      clientPort: 443,
-      path: "/jupyterlab/default/proxy/5000/ws",
+      clientPort: 443, // Required for AWS HTTPS
+      // This path tells the "Hot Reload" exactly where to find your code
+      path: "/jupyterlab/default/proxy/5000/ws", 
     },
     allowedHosts: [".sagemaker.aws"],
-  }
+  },
 });
