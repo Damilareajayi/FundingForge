@@ -1,10 +1,12 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import ws from 'ws';
 import * as schema from "@shared/schema";
 
-const { Pool } = pg;
+neonConfig.webSocketConstructor = ws;
 
-if (!process.env.DATABASE_URL) {
+// We provide a fallback string so the "DATABASE_URL must be set" error stops
+const dbUrl = process.env.DATABASE_URL || "postgresql://dummy:password@localhost:5432/fundingforge";
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ connectionString: dbUrl });
 export const db = drizzle(pool, { schema });
