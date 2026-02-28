@@ -13,8 +13,11 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      // Maps '@' to your client source folder
       "@": path.resolve(import.meta.dirname, "client", "src"),
+      // Maps '@shared' to the shared folder in the root
       "@shared": path.resolve(import.meta.dirname, "shared"),
+      // Maps '@assets' to the attached_assets folder
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
@@ -29,7 +32,7 @@ export default defineConfig({
     strictPort: true, 
     hmr: {
       clientPort: 443, // Required for AWS HTTPS Proxy
-      path: "/jupyterlab/default/proxy/5000/ws",
+      path: "/jupyterlab/default/proxy/5000/ws", // Matches SageMaker URL structure
     },
     allowedHosts: [".sagemaker.aws"],
   }
