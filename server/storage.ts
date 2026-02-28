@@ -25,4 +25,8 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Look for these lines at the bottom:
+// export const storage = new DatabaseStorage(); 
+
+// Change it to this:
+export const storage = new MemStorage();
