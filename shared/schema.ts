@@ -27,3 +27,7 @@ export type Grant = typeof grants.$inferSelect;
 export type InsertGrant = z.infer<typeof insertGrantSchema>;
 export type Faculty = typeof faculty.$inferSelect;
 export type InsertFaculty = z.infer<typeof insertFacultySchema>;
+export const buildUrl = (path: string) => `/api${path}`;
+export const streams = {
+  forge: "/forge"
+};
