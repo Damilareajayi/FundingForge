@@ -12,11 +12,13 @@ export default defineConfig({
     runtimeErrorOverlay(),
   ],
   resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-    },
+  alias: {
+    "@": path.resolve(import.meta.dirname, "client", "src"),
+    "@shared": path.resolve(import.meta.dirname, "shared"),
+    // This maps the @assets alias to the physical folder in your root
+    "@assets": path.resolve(import.meta.dirname, "attached_assets"),
   },
+},
   root: path.resolve(import.meta.dirname, "client"),
   server: {
     host: "0.0.0.0",
