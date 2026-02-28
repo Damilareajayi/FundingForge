@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  base: "./",
+  base: "/jupyterlab/default/proxy/5000/",
   plugins: [react()],
   resolve: {
     alias: {
