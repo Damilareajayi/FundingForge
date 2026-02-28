@@ -4,8 +4,8 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
-  // Use relative paths so assets load correctly behind the SageMaker proxy
-  base: "./", 
+  // THIS IS THE FIX: Forces assets to be relative to the current folder
+  base: "", 
   
   plugins: [
     react(),
@@ -13,24 +13,24 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      // Maps '@' to your client source folder
       "@": path.resolve(import.meta.dirname, "client", "src"),
-      // Maps '@shared' to the shared folder in the root
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true,
-  },
   server: {
     host: "0.0.0.0",
     port: 5000,
     strictPort: true,
     hmr: {
-      clientPort: 443, // Required for AWS SageMaker HTTPS proxy
+      clientPort: 443,
+      // Tells the Hot Module Reload to look inside the proxy folder
+      path: "/jupyterlab/default/proxy/5000/ws", 
+    },
+    allowedHosts: [".sagemaker.aws"],
+  },
+});
     },
     allowedHosts: [".sagemaker.aws"],
   }
