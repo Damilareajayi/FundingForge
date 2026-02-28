@@ -3,45 +3,38 @@ import { createServer, type Server } from "http";
 import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
 import { storage } from "./storage";
 
-// Initialize the AWS Client
-const bedrockClient = new BedrockAgentRuntimeClient({ 
-  region: "us-east-1" 
-});
+const bedrockClient = new BedrockAgentRuntimeClient({ region: "us-east-1" });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Standard API Routes
+  // SAFETY CHECK: Ensure app is valid before calling methods
+  if (!app || typeof app.get !== 'function') {
+    console.error("Critical Error: Express 'app' object was not passed correctly to registerRoutes.");
+    // Fallback to avoid a crash if possible, or throw a clearer error
+    throw new TypeError("app.get is not a function - check server/index.ts");
+  }
+
+  // Define your routes
   app.get("/api/grants", async (_req, res) => {
-    try {
-      const grants = await storage.getGrants();
-      res.json(grants);
-    } catch (err) {
-      res.status(500).json({ message: "Failed to fetch grants" });
-    }
+    const grants = await storage.getGrants();
+    res.json(grants);
   });
 
   app.get("/api/faculty", async (_req, res) => {
-    try {
-      const faculty = await storage.getFaculty();
-      res.json(faculty);
-    } catch (err) {
-      res.status(500).json({ message: "Failed to fetch faculty" });
-    }
+    const faculty = await storage.getFaculty();
+    res.json(faculty);
   });
 
-  // AWS Agent Route
   app.post("/api/forge", async (req, res) => {
     const { grantId, userInput, userId } = req.body;
-
     try {
       const command = new InvokeAgentCommand({
         agentId: process.env.AWS_AGENT_ID,
         agentAliasId: process.env.AWS_AGENT_ALIAS_ID,
         sessionId: userId || "session-1",
-        inputText: `Grant: ${grantId}. Context: ${userInput}`,
+        inputText: `Grant ID: ${grantId}. Context: ${userInput}`,
       });
 
       const response = await bedrockClient.send(command);
-
       let completion = "";
       if (response.completion) {
         for await (const chunk of response.completion) {
@@ -52,12 +45,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ success: true, data: completion });
     } catch (error: any) {
-      console.error("Bedrock Error:", error);
+      console.error("AWS Error:", error);
       res.status(500).json({ success: false, message: error.message });
     }
   });
 
-  // THIS IS THE CRITICAL PART: Return the server
   const httpServer = createServer(app);
   return httpServer;
 }
