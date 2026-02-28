@@ -21,9 +21,15 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5000,
     strictPort: true,
+    watch: {
+      usePolling: false,
+      ignored: ["**/node_modules/**", "**/dist/**"],
+    },
     hmr: {
       clientPort: 443,
       path: "/jupyterlab/default/proxy/5000/ws",
+      timeout: 30000,
+      overlay: false,
     },
     allowedHosts: [".sagemaker.aws"],
   },
