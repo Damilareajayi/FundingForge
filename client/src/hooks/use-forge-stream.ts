@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildUrl, streams } from "@shared/schema";
+const API_BASE = "/api/forge";
 import { z } from "zod";
 
 export type ForgeEvent = z.infer<typeof streams.forge.chunk>;
