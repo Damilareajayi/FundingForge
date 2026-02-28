@@ -1,12 +1,15 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from 'ws';
-import * as schema from "@shared/schema";
+import * as schema from "../shared/schema"; // Fixed path for SageMaker
 
-neonConfig.webSocketConstructor = ws;
+// This allows the database driver to work in a serverless/node environment
+if (ws) {
+  neonConfig.webSocketConstructor = ws;
+}
 
-// We provide a fallback string so the "DATABASE_URL must be set" error stops
-const dbUrl = process.env.DATABASE_URL || "postgresql://dummy:password@localhost:5432/fundingforge";
+// Fallback to a dummy string so the app starts
+const connectionString = process.env.DATABASE_URL || "postgresql://dummy:password@localhost:5432/fundingforge";
 
-export const pool = new Pool({ connectionString: dbUrl });
+export const pool = new Pool({ connectionString });
 export const db = drizzle(pool, { schema });
