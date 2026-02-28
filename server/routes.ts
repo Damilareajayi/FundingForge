@@ -1,21 +1,26 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
+import { storage } from "./storage";
 
 // Initialize the AWS Client
-// SageMaker Execution Role automatically provides credentials if configured
 const bedrockClient = new BedrockAgentRuntimeClient({ 
   region: "us-east-1" 
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // 1. Grant Retrieval Route
+  // Use .get or .post directly on the 'app' object
   app.get("/api/grants", async (_req, res) => {
-    // Your existing logic to fetch grants from storage
-    res.json({ success: true, data: [] }); 
+    const grants = await storage.getGrants();
+    res.json(grants);
   });
 
-  // 2. The Main "Forge" Route for AWS Agents
+  app.get("/api/faculty", async (_req, res) => {
+    const faculty = await storage.getFaculty();
+    res.json(faculty);
+  });
+
+  // This is the route for your AWS Agents
   app.post("/api/forge", async (req, res) => {
     const { grantId, userInput, userId } = req.body;
 
@@ -24,7 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         agentId: process.env.AWS_AGENT_ID,
         agentAliasId: process.env.AWS_AGENT_ALIAS_ID,
         sessionId: userId || "session-1",
-        inputText: `Grant ID: ${grantId}. Context: ${userInput}. Check FSU policies and directory.`,
+        inputText: `Grant ID: ${grantId}. Context: ${userInput}`,
       });
 
       const response = await bedrockClient.send(command);
@@ -45,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // This creates the HTTP server using the express app
+  // CRITICAL: This line creates the server and returns it to index.ts
   const httpServer = createServer(app);
   return httpServer;
 }
