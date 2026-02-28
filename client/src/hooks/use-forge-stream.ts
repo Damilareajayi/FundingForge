@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildUrl, streams } from "@shared/routes";
+import { buildUrl, streams } from "@shared/schema";
 import { z } from "zod";
 
 export type ForgeEvent = z.infer<typeof streams.forge.chunk>;
