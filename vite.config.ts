@@ -4,7 +4,7 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
-  // Use empty string for relative paths behind SageMaker proxy
+  // Force all assets to load relative to the current folder for SageMaker Proxy
   base: "", 
   
   plugins: [
@@ -13,7 +13,6 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      // Maps '@' to your client source folder
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
@@ -27,12 +26,11 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5000,
-    strictPort: true,
+    strictPort: true, 
     hmr: {
-      clientPort: 443, // Required for AWS HTTPS
-      // This path tells the "Hot Reload" exactly where to find your code
-      path: "/jupyterlab/default/proxy/5000/ws", 
+      clientPort: 443, // Required for AWS HTTPS Proxy
+      path: "/jupyterlab/default/proxy/5000/ws",
     },
     allowedHosts: [".sagemaker.aws"],
-  },
+  }
 });
