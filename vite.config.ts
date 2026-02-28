@@ -31,7 +31,15 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
+  // ADD THIS SERVER BLOCK BELOW
   server: {
+    host: "0.0.0.0", // Allows access from outside the container
+    port: 5000,      // Matches the port you are proxying
+    strictPort: true,
+    hmr: {
+      clientPort: 443, // Important for AWS SageMaker HTTPS proxy
+    },
+    allowedHosts: [".sagemaker.aws"], // Allows the SageMaker domain
     fs: {
       strict: true,
       deny: ["**/.*"],
