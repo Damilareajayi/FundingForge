@@ -31,3 +31,24 @@ export const buildUrl = (path: string) => `/api${path}`;
 export const streams = {
   forge: "/forge"
 };
+// ... (your existing pgTable and type exports)
+
+export const buildUrl = (path: string, params?: Record<string, any>) => {
+  const url = new URL(`/api${path}`, window.location.origin);
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, String(v)));
+  }
+  return url.toString();
+};
+
+export const streams = {
+  forge: {
+    path: "/forge",
+    // Define the Zod schema that use-forge-stream.ts is looking for
+    chunk: z.object({
+      content: z.string().optional(),
+      done: z.boolean().optional(),
+      error: z.string().optional(),
+    })
+  }
+};
