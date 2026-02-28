@@ -4,21 +4,10 @@ import { type Server } from "http";
 import viteConfig from "../vite.config";
 import fs from "fs";
 import path from "path";
-import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
 export async function setupVite(server: Server, app: Express) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: {
-      server,
-      clientPort: 443,
-      path: "/jupyterlab/default/proxy/5000/ws",
-    },
-    allowedHosts: true as const,
-  };
-
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -29,15 +18,20 @@ export async function setupVite(server: Server, app: Express) {
         process.exit(1);
       },
     },
-    server: serverOptions,
+    server: {
+      middlewareMode: true,
+      hmr: false,
+      allowedHosts: true as const,
+    },
     appType: "custom",
   });
 
   app.use(vite.middlewares);
 
   app.use("/{*path}", async (req, res, next) => {
-  if (req.originalUrl.startsWith("/api")) return next();
-    // Strip the SageMaker proxy prefix so Vite sees a clean URL
+    // Never intercept API routes
+    if (req.originalUrl.startsWith("/api")) return next();
+
     const url = req.originalUrl.replace(
       /^\/jupyterlab\/default\/proxy\/5000/,
       ""
@@ -51,12 +45,8 @@ export async function setupVite(server: Server, app: Express) {
         "index.html",
       );
 
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-
+      // Read fresh template but do NOT add nanoid — it causes reload loops
+      const template = await fs.promises.readFile(clientTemplate, "utf-8");
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
