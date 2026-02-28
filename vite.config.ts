@@ -3,15 +3,13 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  // This tells the browser to load everything relative to the current URL
+  // Force relative paths for everything
   base: "", 
-  
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
@@ -21,6 +19,7 @@ export default defineConfig({
     strictPort: true,
     hmr: {
       clientPort: 443,
+      // This is the specific "tunnel" for SageMaker hot-reload
       path: "/jupyterlab/default/proxy/5000/ws",
     },
     allowedHosts: [".sagemaker.aws"],
