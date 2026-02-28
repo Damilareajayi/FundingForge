@@ -14,8 +14,6 @@ export default defineConfig({
   resolve: {
   alias: {
     "@": path.resolve(import.meta.dirname, "client", "src"),
-    "@shared": path.resolve(import.meta.dirname, "shared"),
-    // This maps the @assets alias to the physical folder in your root
     "@assets": path.resolve(import.meta.dirname, "attached_assets"),
   },
 },
