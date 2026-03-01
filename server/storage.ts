@@ -2,61 +2,76 @@ import { type Grant, type Faculty } from "@shared/schema";
 import {
   BedrockAgentRuntimeClient,
   RetrieveCommand,
+  RetrieveAndGenerateCommand,
 } from "@aws-sdk/client-bedrock-agent-runtime";
 
 const client = new BedrockAgentRuntimeClient({ region: "us-east-1" });
 
-const KB_GRANTS  = "KFW7ZEBGMR";
-const KB_FACULTY = "Q89ZCWQSRY";
+const KB_ID = "QXPZVFHFV1";
+const MODEL_ARN = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0";
 
-async function retrieveChunks(kbId: string, query: string, n = 20): Promise<string[]> {
+async function retrieveAndGenerate(query: string): Promise<string> {
   try {
-    const cmd = new RetrieveCommand({
-      knowledgeBaseId: kbId,
-      retrievalQuery: { text: query },
-      retrievalConfiguration: { vectorSearchConfiguration: { numberOfResults: n } },
+    const cmd = new RetrieveAndGenerateCommand({
+      input: { text: query },
+      retrieveAndGenerateConfiguration: {
+        type: "KNOWLEDGE_BASE",
+        knowledgeBaseConfiguration: {
+          knowledgeBaseId: KB_ID,
+          modelArn: MODEL_ARN,
+        },
+      },
     });
     const resp = await client.send(cmd);
-    return (resp.retrievalResults ?? [])
-      .map((r) => r.content?.text ?? "")
-      .filter(Boolean);
+    return resp.output?.text ?? "";
   } catch (e) {
-    console.error(`[KB] Failed to retrieve from ${kbId}:`, e);
-    return [];
+    console.error("[KB] RetrieveAndGenerate failed:", e);
+    return "";
   }
 }
 
-function parseGrantsFromChunks(chunks: string[]): Grant[] {
+async function extractGrantsFromKB(): Promise<Grant[]> {
+  const query = `List all grant programs and funding opportunities available to FSU faculty, graduate students, and undergraduate students. 
+For each grant provide: name, who is eligible (faculty/grad students/undergrads), eligibility requirements, funding amount, and deadline.`;
+
+  const answer = await retrieveAndGenerate(query);
+  if (!answer || answer.length < 50) return [];
+
+  console.log("[Storage] KB grant answer:", answer.slice(0, 300));
+
   const grants: Grant[] = [];
   let id = 1;
 
-  for (const chunk of chunks) {
-    if (!chunk || chunk.length < 30) continue;
+  const blocks = answer
+    .split(/\n(?=\d+\.|#{1,3}\s|\*\*[A-Z]|-\s[A-Z])/g)
+    .filter((b) => b.trim().length > 30);
 
-    const lines = chunk.split("\n").filter((l) => l.trim());
-    const nameMatch = chunk.match(/(?:grant name|title|program)[:\s]+([^\n]+)/i);
-    const name = nameMatch?.[1]?.trim() ?? lines[0]?.trim() ?? `Grant Opportunity ${id}`;
+  for (const block of blocks) {
+    const lines = block.split("\n").filter((l) => l.trim());
+    if (lines.length < 1) continue;
 
-    const audienceRaw = chunk.match(/(?:eligible|audience|for)[:\s]+([^\n]+)/i)?.[1]?.toLowerCase() ?? "";
-    const audience = audienceRaw.includes("faculty")
-      ? "Faculty"
-      : audienceRaw.includes("grad")
-      ? "Grad Students"
-      : audienceRaw.includes("under")
-      ? "Undergrads"
-      : "Faculty";
+    const nameLine = lines[0].replace(/^[\d\.\*#\-\s]+/, "").replace(/\*\*/g, "").trim();
+    if (!nameLine || nameLine.length < 5) continue;
 
-    const deadlineMatch = chunk.match(/(?:deadline|due date|internal deadline)[:\s]+([^\n]+)/i);
-    const amountMatch = chunk.match(/(?:amount|funding|award)[:\s]+([^\n]+)/i);
-    const eligibilityMatch = chunk.match(/(?:eligibility|eligible|requirements?)[:\s]+([^\n]+)/i);
+    const blockLower = block.toLowerCase();
+    const audience =
+      blockLower.includes("undergraduate") || blockLower.includes("undergrad")
+        ? "Undergrads"
+        : blockLower.includes("graduate") || blockLower.includes("phd") || blockLower.includes("grad student")
+        ? "Grad Students"
+        : "Faculty";
+
+    const eligibilityMatch = block.match(/(?:eligible|eligibility|who can apply|requirements?)[:\s]+([^\n]+)/i);
+    const amountMatch = block.match(/(?:amount|funding|award|stipend|up to)[:\s]+([^\n]+)/i);
+    const deadlineMatch = block.match(/(?:deadline|due|submit by)[:\s]+([^\n]+)/i);
 
     grants.push({
       id: id++,
-      name: name.replace(/\*\*/g, "").trim().slice(0, 120),
+      name: nameLine.slice(0, 120),
       targetAudience: audience as Grant["targetAudience"],
-      eligibility: eligibilityMatch?.[1]?.trim() ?? chunk.slice(0, 150),
-      matchCriteria: amountMatch?.[1]?.trim() ?? chunk.slice(0, 200),
-      internalDeadline: deadlineMatch?.[1]?.trim() ?? "Contact grants office",
+      eligibility: eligibilityMatch?.[1]?.trim() ?? lines.slice(1).join(" ").slice(0, 200),
+      matchCriteria: amountMatch?.[1]?.trim() ?? block.slice(0, 200),
+      internalDeadline: deadlineMatch?.[1]?.trim() ?? "Contact grants office for deadline",
     });
 
     if (grants.length >= 12) break;
@@ -65,27 +80,37 @@ function parseGrantsFromChunks(chunks: string[]): Grant[] {
   return grants;
 }
 
-function parseFacultyFromChunks(chunks: string[]): Faculty[] {
+async function extractFacultyFromKB(): Promise<Faculty[]> {
+  const query = `List FSU faculty members from the faculty directory. 
+For each faculty member provide: full name, department, research expertise and interests, email if available, and current research projects.`;
+
+  const answer = await retrieveAndGenerate(query);
+  if (!answer || answer.length < 50) return [];
+
   const faculty: Faculty[] = [];
   let id = 1;
 
-  for (const chunk of chunks) {
-    if (!chunk || chunk.length < 30) continue;
+  const blocks = answer
+    .split(/\n(?=\d+\.|#{1,3}\s|\*\*[A-Z]|-\s[A-Z])/g)
+    .filter((b) => b.trim().length > 30);
 
-    const lines = chunk.split("\n").filter((l) => l.trim());
-    const nameMatch = chunk.match(/(?:name|faculty|professor|dr\.?)[:\s]+([^\n]+)/i);
-    const name = nameMatch?.[1]?.trim() ?? lines[0]?.trim() ?? `Faculty ${id}`;
+  for (const block of blocks) {
+    const lines = block.split("\n").filter((l) => l.trim());
+    if (lines.length < 1) continue;
 
-    const deptMatch = chunk.match(/(?:department|dept|division)[:\s]+([^\n]+)/i);
-    const expertiseMatch = chunk.match(/(?:expertise|research|specializ)[:\s]+([^\n]+)/i);
+    const nameLine = lines[0].replace(/^[\d\.\*#\-\s]+/, "").replace(/\*\*/g, "").trim();
+    if (!nameLine || nameLine.length < 3) continue;
+
+    const deptMatch = block.match(/(?:department|dept|division|college)[:\s]+([^\n]+)/i);
+    const expertiseMatch = block.match(/(?:expertise|research|specializ|interests?)[:\s]+([^\n]+)/i);
 
     faculty.push({
       id: id++,
-      name: name.replace(/\*\*/g, "").trim().slice(0, 80),
-      department: deptMatch?.[1]?.trim() ?? "Research Faculty",
-      expertise: expertiseMatch?.[1]?.trim() ?? chunk.slice(0, 150),
-      imageUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
-      bio: chunk.slice(0, 300),
+      name: nameLine.slice(0, 80),
+      department: deptMatch?.[1]?.trim() ?? "FSU Faculty",
+      expertise: expertiseMatch?.[1]?.trim() ?? lines.slice(1).join(" ").slice(0, 150),
+      imageUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(nameLine)}`,
+      bio: block.slice(0, 300),
     });
 
     if (faculty.length >= 10) break;
@@ -104,7 +129,7 @@ export class BedrockStorage implements IStorage {
   private _faculty: Faculty[] | null = null;
   private _grantsLoadedAt = 0;
   private _facultyLoadedAt = 0;
-  private readonly CACHE_TTL = 5 * 60 * 1000;
+  private readonly CACHE_TTL = 10 * 60 * 1000;
 
   async getGrants(): Promise<Grant[]> {
     const now = Date.now();
@@ -112,12 +137,16 @@ export class BedrockStorage implements IStorage {
       return this._grants;
     }
     console.log("[Storage] Fetching grants from Bedrock KB...");
-    const chunks = await retrieveChunks(KB_GRANTS, "grant opportunities funding programs eligibility deadlines", 20);
-    this._grants = parseGrantsFromChunks(chunks);
-    this._grantsLoadedAt = now;
-    console.log(`[Storage] Loaded ${this._grants.length} grants from KB`);
+    try {
+      this._grants = await extractGrantsFromKB();
+      this._grantsLoadedAt = now;
+      console.log(`[Storage] Loaded ${this._grants.length} grants from KB`);
+    } catch (e) {
+      console.error("[Storage] Grant extraction failed:", e);
+      this._grants = [];
+    }
     if (this._grants.length === 0) {
-      console.log("[Storage] KB returned empty, using fallback grants");
+      console.log("[Storage] Using fallback grants");
       this._grants = getFallbackGrants();
     }
     return this._grants;
@@ -129,12 +158,16 @@ export class BedrockStorage implements IStorage {
       return this._faculty;
     }
     console.log("[Storage] Fetching faculty from Bedrock KB...");
-    const chunks = await retrieveChunks(KB_FACULTY, "faculty professor researcher department expertise", 20);
-    this._faculty = parseFacultyFromChunks(chunks);
-    this._facultyLoadedAt = now;
-    console.log(`[Storage] Loaded ${this._faculty.length} faculty from KB`);
+    try {
+      this._faculty = await extractFacultyFromKB();
+      this._facultyLoadedAt = now;
+      console.log(`[Storage] Loaded ${this._faculty.length} faculty from KB`);
+    } catch (e) {
+      console.error("[Storage] Faculty extraction failed:", e);
+      this._faculty = [];
+    }
     if (this._faculty.length === 0) {
-      console.log("[Storage] KB returned empty, using fallback faculty");
+      console.log("[Storage] Using fallback faculty");
       this._faculty = getFallbackFaculty();
     }
     return this._faculty;
@@ -163,6 +196,14 @@ function getFallbackGrants(): Grant[] {
     },
     {
       id: 3,
+      name: "FSU CRC Seed Grant",
+      targetAudience: "Faculty",
+      eligibility: "FSU faculty paid by FSU. Up to five Co-PIs per proposal.",
+      matchCriteria: "Awards average $50,000, max $100,000. Student stipends and project materials allowed.",
+      internalDeadline: "Two competition rounds per academic year",
+    },
+    {
+      id: 4,
       name: "FSU First Year Assistant Professor Award",
       targetAudience: "Faculty",
       eligibility: "First-year tenure-track faculty at FSU.",
@@ -170,7 +211,7 @@ function getFallbackGrants(): Grant[] {
       internalDeadline: "October 1",
     },
     {
-      id: 4,
+      id: 5,
       name: "NSF Graduate Research Fellowship",
       targetAudience: "Grad Students",
       eligibility: "Early-career graduate students in STEM fields. US citizens only.",
@@ -178,7 +219,7 @@ function getFallbackGrants(): Grant[] {
       internalDeadline: "October 15 internal review",
     },
     {
-      id: 5,
+      id: 6,
       name: "Ford Foundation Fellowship",
       targetAudience: "Grad Students",
       eligibility: "PhD students committed to diversity in higher education.",
@@ -186,7 +227,7 @@ function getFallbackGrants(): Grant[] {
       internalDeadline: "December 1",
     },
     {
-      id: 6,
+      id: 7,
       name: "FSU Graduate Research Fellowship",
       targetAudience: "Grad Students",
       eligibility: "FSU graduate students in good academic standing.",
@@ -194,7 +235,7 @@ function getFallbackGrants(): Grant[] {
       internalDeadline: "February 1",
     },
     {
-      id: 7,
+      id: 8,
       name: "Goldwater Scholarship",
       targetAudience: "Undergrads",
       eligibility: "Sophomore or junior STEM undergrads with 3.0+ GPA.",
@@ -202,7 +243,7 @@ function getFallbackGrants(): Grant[] {
       internalDeadline: "Internal nomination deadline: December 1",
     },
     {
-      id: 8,
+      id: 9,
       name: "NSF REU Supplement",
       targetAudience: "Undergrads",
       eligibility: "Undergraduates participating in active NSF-funded research.",
