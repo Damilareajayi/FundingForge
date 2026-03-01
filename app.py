@@ -42,11 +42,8 @@ with col_upload:
         help="Upload a PDF version of your academic CV or resume.",
     )
 
-st.markdown("")  # small spacing
+st.markdown("")
 
-# ---------------------------------------------------------------------------
-# Submit button
-# ---------------------------------------------------------------------------
 _, col_btn, _ = st.columns([2, 1, 2])
 with col_btn:
     submit = st.button(
@@ -57,10 +54,29 @@ with col_btn:
     )
 
 # ---------------------------------------------------------------------------
+# Helper: build the downloadable markdown report
+# ---------------------------------------------------------------------------
+def _build_report(result: dict) -> str:
+    lines = ["# FundingForge Analysis Report\n", "## Researcher Profile\n",
+             result.get("researcher_summary", ""), "\n"]
+    for i, m in enumerate(result.get("matches", []), 1):
+        lines += [
+            f"\n---\n\n## Match {i}: {m.get('grant_title', '')} ({m.get('grant_agency', '')})\n",
+            f"**Grant Match Score:** {m.get('grant_match_score', 0)}%  |  "
+            f"**Collaborator Synergy Score:** {m.get('collaborator_synergy_score', 0)}%\n",
+            f"\n### Why This Grant Fits\n{m.get('grant_justification', '')}\n",
+            f"\n### Recommended Collaborator: {m.get('collaborator_name', '')}\n",
+            f"_{m.get('collaborator_department', '')}_\n\n{m.get('collaborator_justification', '')}\n",
+            f"\n### Draft Proposal Abstract\n{m.get('draft_proposal', '')}\n",
+            f"\n### Outreach Email\n{m.get('draft_email', '')}\n",
+        ]
+    return "\n".join(lines)
+
+# ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
 if submit:
-    # --- PDF extraction ---
+    # PDF extraction
     try:
         reader = PdfReader(io.BytesIO(uploaded_file.read()))
         cv_text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
@@ -69,44 +85,37 @@ if submit:
         st.stop()
 
     if not cv_text:
-        st.error(
-            "Could not extract any text from this PDF. "
-            "Please ensure it is not a scanned image-only file."
-        )
+        st.error("Could not extract text from this PDF. Ensure it is not a scanned image-only file.")
         st.stop()
 
-    # --- Agent execution with live progress ---
-    result = {}
+    # ---- Agent execution with live progress --------------------------------
     called_tools: set = set()
-    # Capture Streamlit's script context so the callback can use st.write
-    # even when Strands invokes it from a background thread.
     _script_ctx = get_script_run_ctx()
 
     with st.status("FundingForge agent is working...", expanded=True) as status:
-        st.write("Extracting and analyzing CV content...")
+        st.write("Analyzing CV content and extracting researcher profile...")
 
         def on_event(**kwargs):
-            """Strands streaming callback – updates the status widget in real time."""
-            # Re-attach Streamlit's context to whichever thread this runs in.
             add_script_run_ctx(threading.current_thread(), _script_ctx)
-
             tool_name = None
             for key in ("current_tool_use", "tool_use", "toolUse"):
                 val = kwargs.get(key)
                 if isinstance(val, dict):
                     tool_name = val.get("name") or val.get("toolName")
                     break
-
-            if tool_name and tool_name not in called_tools:
-                called_tools.add(tool_name)
-                messages = {
-                    "search_grant_opportunities":        "Searching grant opportunities in Knowledge Base...",
-                    "search_complementary_collaborators":"Finding complementary collaborators...",
-                    "search_institutional_policies":     "Retrieving institutional policies & guidelines...",
-                }
-                msg = messages.get(tool_name)
-                if msg:
-                    st.write(msg)
+            if not tool_name or tool_name in called_tools:
+                return
+            called_tools.add(tool_name)
+            # Show a distinct message for each tool invocation index
+            call_index = len(called_tools)
+            msgs = {
+                "search_grant_opportunities":        "Searching grant opportunities in Knowledge Base...",
+                "search_complementary_collaborators": f"Finding collaborator for grant {call_index - 1}/3...",
+                "search_institutional_policies":     "Retrieving institutional policies & guidelines...",
+            }
+            msg = msgs.get(tool_name)
+            if msg:
+                st.write(msg)
 
         try:
             result = run_agent(cv_text, callback=on_event)
@@ -114,69 +123,80 @@ if submit:
             status.update(label="Analysis complete!", state="complete", expanded=False)
         except BaseException as e:
             status.update(label="An error occurred.", state="error", expanded=True)
-            st.error(f"Agent error: {type(e).__name__}: {e}")
+            st.error(f"Agent error — {type(e).__name__}: {e}")
             st.stop()
 
-    # --- Score metrics ---
-    st.markdown("### Match Scores")
-    col_m1, col_m2 = st.columns(2)
+    # ---- Error / parse fallback --------------------------------------------
+    if result.get("_parse_error") or not result.get("matches"):
+        st.error("The agent did not return structured results. Raw output shown below.")
+        with st.expander("Raw agent output"):
+            st.text(result.get("_raw", ""))
+        st.stop()
 
-    grant_score = result.get("grant_match_score", 0)
-    collab_score = result.get("collaborator_synergy_score", 0)
+    # ========================================================================
+    # DASHBOARD LAYOUT
+    # ========================================================================
+    left_col, right_col = st.columns([1, 2], gap="large")
 
-    with col_m1:
-        st.metric(label="Grant Match Score", value=f"{grant_score}%")
-        st.progress(grant_score / 100)
+    # ---- Left: Researcher Profile ------------------------------------------
+    with left_col:
+        st.subheader("Researcher Profile")
+        st.markdown(result.get("researcher_summary", "_No profile extracted._"))
 
-    with col_m2:
-        st.metric(label="Collaborator Synergy Score", value=f"{collab_score}%")
-        st.progress(collab_score / 100)
+    # ---- Right: Grant Matches ----------------------------------------------
+    with right_col:
+        st.subheader("Top 3 Grant Matches")
 
+        for i, match in enumerate(result.get("matches", []), 1):
+            grant_score  = match.get("grant_match_score", 0)
+            collab_score = match.get("collaborator_synergy_score", 0)
+            title        = match.get("grant_title", f"Grant {i}")
+            agency       = match.get("grant_agency", "")
+
+            # One expander per grant; auto-expand the first result
+            with st.expander(
+                f"{'🥇' if i == 1 else '🥈' if i == 2 else '🥉'}  {title}  —  {grant_score}% Match",
+                expanded=(i == 1),
+            ):
+                # Score row
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
+                    st.metric("Grant Match Score", f"{grant_score}%")
+                    st.progress(grant_score / 100)
+                with col_s2:
+                    st.metric("Collaborator Synergy Score", f"{collab_score}%")
+                    st.progress(collab_score / 100)
+
+                st.caption(f"Funding agency: **{agency}**" if agency else "")
+
+                # Grant justification
+                st.markdown("**Why this grant fits your profile**")
+                st.info(match.get("grant_justification", ""))
+
+                # Collaborator card
+                collab_name = match.get("collaborator_name", "Unknown Collaborator")
+                collab_dept = match.get("collaborator_department", "")
+                st.markdown(f"**Recommended Collaborator: {collab_name}**")
+                if collab_dept:
+                    st.caption(collab_dept)
+                st.markdown(match.get("collaborator_justification", ""))
+
+                st.divider()
+
+                # Proposal + Email as tabs
+                tab_proposal, tab_email = st.tabs(["📄 Proposal Assistant", "✉️ Outreach Email"])
+                with tab_proposal:
+                    st.markdown(match.get("draft_proposal") or "_No proposal generated._")
+                with tab_email:
+                    raw_email = match.get("draft_email", "_No email generated._")
+                    # Render newline escapes that may come back as literal \n from JSON
+                    st.markdown(raw_email.replace("\\n", "\n"))
+
+    # ---- Download ----------------------------------------------------------
     st.divider()
-
-    # --- Synergy analysis summary ---
-    if result.get("synergy_analysis"):
-        st.info(result["synergy_analysis"])
-
-    # --- Matched grant ---
-    st.markdown("### Matched Grant")
-    if result.get("matched_grant"):
-        st.markdown(result["matched_grant"])
-    else:
-        st.markdown("_No grant details extracted._")
-
-    # --- Recommended collaborator ---
-    st.markdown("### Recommended Collaborator")
-    if result.get("recommended_collaborator"):
-        st.markdown(result["recommended_collaborator"])
-    else:
-        st.markdown("_No collaborator details extracted._")
-
-    # --- Draft proposal ---
-    st.markdown("### Draft Grant Proposal Abstract")
-    with st.expander("View Draft Proposal", expanded=True):
-        st.markdown(result.get("draft_proposal") or "_No proposal generated._")
-
-    # --- Draft email ---
-    st.markdown("### Draft Outreach Email")
-    with st.expander("View Draft Email", expanded=True):
-        st.markdown(result.get("draft_email") or "_No email generated._")
-
-    # --- Download ---
-    st.divider()
-    report_md = f"""# FundingForge Analysis Report
-
-## Grant Match Score: {grant_score}%
-## Collaborator Synergy Score: {collab_score}%
-
----
-
-{result.get("raw", "")}
-"""
     st.download_button(
         label="Download Full Report (.md)",
-        data=report_md,
+        data=_build_report(result),
         file_name="fundingforge_report.md",
         mime="text/markdown",
-        use_container_width=False,
     )

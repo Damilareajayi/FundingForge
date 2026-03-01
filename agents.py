@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import boto3
 from dotenv import load_dotenv
 
@@ -17,11 +18,12 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 _kb_client = boto3.client("bedrock-agent-runtime", region_name="us-east-1")
 
+
 # ---------------------------------------------------------------------------
 # Tool helpers
 # ---------------------------------------------------------------------------
 
-def _retrieve(kb_id: str, query: str, n: int = 3) -> str:
+def _retrieve(kb_id: str, query: str, n: int = 5) -> str:
     """Run a Knowledge Base retrieve call and return formatted text."""
     response = _kb_client.retrieve(
         knowledgeBaseId=kb_id,
@@ -43,19 +45,19 @@ def _retrieve(kb_id: str, query: str, n: int = 3) -> str:
 
 @tool
 def search_grant_opportunities(researcher_strengths: str) -> str:
-    """Search the grant opportunities Knowledge Base for grants that match the researcher's strengths and expertise areas."""
+    """Search the grant opportunities Knowledge Base. Returns the top 5 grant opportunities matching the researcher's strengths. Call this once to discover all candidate grants."""
     try:
-        return "GRANT OPPORTUNITIES:\n\n" + _retrieve("KFW7ZEBGMR", researcher_strengths)
+        return "GRANT OPPORTUNITIES FOUND:\n\n" + _retrieve("KFW7ZEBGMR", researcher_strengths)
     except Exception as e:
         return f"Error searching grant opportunities: {str(e)}"
 
 
 @tool
-def search_complementary_collaborators(researcher_profile_and_grant_requirements: str) -> str:
-    """Search the collaborators Knowledge Base for researchers whose skills complement the applicant and match grant requirements."""
+def search_complementary_collaborators(researcher_profile_and_specific_grant_requirements: str) -> str:
+    """Search the collaborators Knowledge Base. Call this once per grant (3 total calls) with the researcher profile combined with that specific grant's requirements to find the best-fit collaborator for each grant."""
     try:
-        return "COMPLEMENTARY COLLABORATORS:\n\n" + _retrieve(
-            "Q89ZCWQSRY", researcher_profile_and_grant_requirements
+        return "COMPLEMENTARY COLLABORATORS FOUND:\n\n" + _retrieve(
+            "Q89ZCWQSRY", researcher_profile_and_specific_grant_requirements
         )
     except Exception as e:
         return f"Error searching collaborators: {str(e)}"
@@ -63,9 +65,9 @@ def search_complementary_collaborators(researcher_profile_and_grant_requirements
 
 @tool
 def search_institutional_policies(grant_and_proposal_keywords: str) -> str:
-    """Search the institutional policies Knowledge Base for relevant submission guidelines and requirements."""
+    """Search the institutional policies Knowledge Base for submission guidelines and compliance requirements relevant to the grant proposals."""
     try:
-        return "INSTITUTIONAL POLICIES:\n\n" + _retrieve("LULFPOFCTD", grant_and_proposal_keywords)
+        return "INSTITUTIONAL POLICIES & GUIDELINES:\n\n" + _retrieve("LULFPOFCTD", grant_and_proposal_keywords)
     except Exception as e:
         return f"Error searching institutional policies: {str(e)}"
 
@@ -76,44 +78,43 @@ def search_institutional_policies(grant_and_proposal_keywords: str) -> str:
 
 SYSTEM_PROMPT = """You are FundingForge, an expert academic grant matchmaking agent.
 
-When given a researcher's CV, you MUST execute these steps in order:
-1. Extract the researcher's key expertise, research areas, and notable achievements from the CV.
-2. Call search_grant_opportunities with a concise summary of the researcher's strengths.
-3. Call search_complementary_collaborators with the researcher's profile PLUS the grant requirements you discovered.
-4. Call search_institutional_policies with keywords from the grant title and proposal type.
-5. Synthesize all findings into the structured final report below.
+EXECUTION STEPS — follow in this exact order:
+1. Analyze the CV to extract the researcher's top strengths, expertise areas, and notable achievements.
+2. Call search_grant_opportunities once with a concise description of the researcher's strengths to get candidate grants.
+3. Select the TOP 3 most relevant grants from the results.
+4. Call search_complementary_collaborators THREE TIMES — once per grant — using the researcher profile combined with each specific grant's requirements. Find a distinct collaborator for each.
+5. Call search_institutional_policies once with keywords from the grant types to retrieve submission guidelines.
+6. Synthesize all findings and output ONLY the JSON object below.
 
-Your response MUST contain these exact section headers in this order:
+CRITICAL OUTPUT RULE:
+Your entire response must be a single valid JSON object — no preamble, no explanation, no markdown fences.
+Start your response with { and end with }.
 
-## SCORES & SYNERGY ANALYSIS
-Grant Match Score: [integer 0-100]%
-Collaborator Synergy Score: [integer 0-100]%
-[2-3 sentences explaining why this combination is strong]
+Required JSON schema (EXACTLY 3 objects in the matches array):
+{
+  "researcher_summary": "Markdown bullet list of the researcher's top 5-7 key strengths and expertise areas. Use - for bullets.",
+  "matches": [
+    {
+      "grant_title": "Full official name of the grant",
+      "grant_agency": "Funding agency name (e.g. NSF, NIH, DOE)",
+      "grant_match_score": 88,
+      "grant_justification": "2-3 sentences explaining exactly why this grant aligns with the researcher's profile and expertise.",
+      "collaborator_name": "Full name and title of the recommended collaborator (e.g. Dr. Jane Smith)",
+      "collaborator_department": "Department and institution of the collaborator",
+      "collaborator_synergy_score": 95,
+      "collaborator_justification": "2-3 sentences on how this collaborator's skills complement the researcher and fill gaps required by this specific grant.",
+      "draft_proposal": "A compelling ~200-word abstract for the joint grant proposal. Must reference both researchers and how they address the grant objectives.",
+      "draft_email": "A professional outreach email. Format: 'Subject: [subject line]\\n\\nDear [Name],\\n\\n[~150 word body]\\n\\nBest regards,\\n[Researcher Name]'"
+    }
+  ]
+}
 
-## MATCHED GRANT
-[Grant name, funding agency, approximate amount, deadline if known, key eligibility and requirements]
-
-## RECOMMENDED COLLABORATOR
-[Full name, department/institution, expertise highlights, specific skills that fill the researcher's gaps]
-
-## DRAFT GRANT PROPOSAL ABSTRACT
-[~250 word compelling abstract for the joint proposal]
-
-## DRAFT OUTREACH EMAIL
-Subject: [Subject line]
-
-Dear [Collaborator Name],
-
-[~150 word professional email proposing the collaboration, referencing their expertise and the grant]
-
-Best regards,
-[Researcher Name from CV]
-
-Rules:
-- Scores must be plain integers (e.g. 87%, not 87.5%)
-- Never skip a section
-- Be specific, persuasive, and professional throughout
-- All output must be in English"""
+Additional rules:
+- All score fields must be plain integers 0-100 (no decimals, no % symbol in JSON)
+- Scores should reflect genuine fit: grant_match_score for CV-to-grant alignment, collaborator_synergy_score for skill complementarity
+- Use different collaborators for each of the 3 grants where possible
+- All text must be in English
+- Ensure the JSON is syntactically valid: escape internal quotes, no trailing commas"""
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +130,7 @@ def run_agent(cv_text: str, callback=None) -> dict:
         callback: Optional Strands callback_handler for streaming events.
 
     Returns:
-        Parsed result dict with scores, sections, and raw output.
+        Parsed dict with 'researcher_summary', 'matches' list, and '_raw'.
     """
     model = BedrockModel(
         model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
@@ -151,7 +152,8 @@ def run_agent(cv_text: str, callback=None) -> dict:
     agent = Agent(**agent_kwargs)
 
     prompt = (
-        "Analyze this researcher's CV and produce a complete FundingForge report.\n\n"
+        "Analyze this researcher's CV and produce the FundingForge JSON report. "
+        "Remember: output ONLY the JSON object, nothing else.\n\n"
         f"--- CV START ---\n{cv_text}\n--- CV END ---"
     )
     response = agent(prompt)
@@ -163,37 +165,32 @@ def run_agent(cv_text: str, callback=None) -> dict:
 # ---------------------------------------------------------------------------
 
 def _parse_output(text: str) -> dict:
-    result = {
-        "raw": text,
-        "grant_match_score": 0,
-        "collaborator_synergy_score": 0,
-        "synergy_analysis": "",
-        "matched_grant": "",
-        "recommended_collaborator": "",
-        "draft_proposal": "",
-        "draft_email": "",
-    }
+    """Extract and parse the JSON payload from the agent's response."""
 
-    # Extract scores
-    m = re.search(r"Grant Match Score:\s*(\d+)%", text, re.IGNORECASE)
-    if m:
-        result["grant_match_score"] = min(100, max(0, int(m.group(1))))
+    # 1. Try to strip ```json ... ``` code fences if the model added them
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+    candidate = fenced.group(1).strip() if fenced else text.strip()
 
-    m = re.search(r"Collaborator Synergy Score:\s*(\d+)%", text, re.IGNORECASE)
-    if m:
-        result["collaborator_synergy_score"] = min(100, max(0, int(m.group(1))))
+    # 2. If still not starting with {, find the outermost {...} block
+    if not candidate.startswith("{"):
+        brace = re.search(r"\{[\s\S]*\}", candidate)
+        candidate = brace.group(0) if brace else candidate
 
-    # Extract named sections
-    section_patterns = [
-        ("synergy_analysis",        r"## SCORES & SYNERGY ANALYSIS\n(.*?)(?=## MATCHED GRANT)"),
-        ("matched_grant",           r"## MATCHED GRANT\n(.*?)(?=## RECOMMENDED COLLABORATOR)"),
-        ("recommended_collaborator",r"## RECOMMENDED COLLABORATOR\n(.*?)(?=## DRAFT GRANT PROPOSAL ABSTRACT)"),
-        ("draft_proposal",          r"## DRAFT GRANT PROPOSAL ABSTRACT\n(.*?)(?=## DRAFT OUTREACH EMAIL)"),
-        ("draft_email",             r"## DRAFT OUTREACH EMAIL\n(.*?)$"),
-    ]
-    for key, pattern in section_patterns:
-        m = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-        if m:
-            result[key] = m.group(1).strip()
-
-    return result
+    # 3. Attempt JSON parse
+    try:
+        data = json.loads(candidate)
+        data["_raw"] = text
+        # Clamp all scores to [0, 100]
+        for match in data.get("matches", []):
+            for key in ("grant_match_score", "collaborator_synergy_score"):
+                if key in match:
+                    match[key] = min(100, max(0, int(match[key])))
+        return data
+    except (json.JSONDecodeError, ValueError):
+        # Graceful fallback so the UI can still show something
+        return {
+            "_raw": text,
+            "_parse_error": True,
+            "researcher_summary": "Could not parse structured output from the agent.",
+            "matches": [],
+        }
