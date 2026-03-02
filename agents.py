@@ -47,7 +47,7 @@ def _retrieve(kb_id: str, query: str, n: int = 5) -> str:
 def search_grant_opportunities(researcher_strengths: str) -> str:
     """Search the grant opportunities Knowledge Base. Returns the top 5 grant opportunities matching the researcher's strengths. Call this once to discover all candidate grants."""
     try:
-        return "GRANT OPPORTUNITIES FOUND:\n\n" + _retrieve("KFW7ZEBGMR", researcher_strengths)
+        return "GRANT OPPORTUNITIES FOUND:\n\n" + _retrieve("BQJIUNN7T7", researcher_strengths)
     except Exception as e:
         return f"Error searching grant opportunities: {str(e)}"
 
@@ -57,7 +57,7 @@ def search_complementary_collaborators(researcher_profile_and_specific_grant_req
     """Search the collaborators Knowledge Base. Call this once per grant (3 total calls) with the researcher profile combined with that specific grant's requirements to find the best-fit collaborator for each grant."""
     try:
         return "COMPLEMENTARY COLLABORATORS FOUND:\n\n" + _retrieve(
-            "Q89ZCWQSRY", researcher_profile_and_specific_grant_requirements
+            "BQJIUNN7T7", researcher_profile_and_specific_grant_requirements
         )
     except Exception as e:
         return f"Error searching collaborators: {str(e)}"
@@ -67,7 +67,7 @@ def search_complementary_collaborators(researcher_profile_and_specific_grant_req
 def search_institutional_policies(grant_and_proposal_keywords: str) -> str:
     """Search the institutional policies Knowledge Base for submission guidelines and compliance requirements relevant to the grant proposals."""
     try:
-        return "INSTITUTIONAL POLICIES & GUIDELINES:\n\n" + _retrieve("LULFPOFCTD", grant_and_proposal_keywords)
+        return "INSTITUTIONAL POLICIES & GUIDELINES:\n\n" + _retrieve("BQJIUNN7T7", grant_and_proposal_keywords)
     except Exception as e:
         return f"Error searching institutional policies: {str(e)}"
 
@@ -132,9 +132,12 @@ def run_agent(cv_text: str, callback=None) -> dict:
     Returns:
         Parsed dict with 'researcher_summary', 'matches' list, and '_raw'.
     """
+    # Create a boto3 session to ensure credentials are properly loaded
+    session = boto3.Session(region_name="us-east-1")
+    
     model = BedrockModel(
         model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-        region_name="us-east-1",
+        boto_session=session,
     )
 
     agent_kwargs = dict(

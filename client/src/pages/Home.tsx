@@ -26,14 +26,25 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-88px)] ff-mesh ff-grain">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="pt-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <StagePill index={1} label="Intake" active={stage === "intake"} />
-            <StagePill index={2} label="Discovery" active={stage === "discovery"} />
-            <StagePill index={3} label="Packet" active={stage === "packet"} />
-            <div className="ml-auto hidden md:block text-sm text-muted-foreground">
+    <div className="min-h-[calc(100vh-88px)]">
+      {/* Stage Progress Bar */}
+      <div className="border-b border-border/40 bg-white/80 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-2">
+              <div className={stage === "intake" ? "rounded-full bg-blue-600 text-white px-3 py-1 text-sm font-semibold" : "text-sm text-muted-foreground"}>
+                {stage === "intake" ? "1 Intake" : "1 Intake"}
+              </div>
+              <span className="text-muted-foreground">·</span>
+              <div className={stage === "discovery" ? "rounded-full bg-blue-600 text-white px-3 py-1 text-sm font-semibold" : "text-sm text-muted-foreground"}>
+                2 Discovery
+              </div>
+              <span className="text-muted-foreground">·</span>
+              <div className={stage === "packet" ? "rounded-full bg-blue-600 text-white px-3 py-1 text-sm font-semibold" : "text-sm text-muted-foreground"}>
+                3 Packet
+              </div>
+            </div>
+            <div className="hidden md:block text-sm text-muted-foreground">
               Current stage: <span className="font-semibold">{stageLabel}</span>
             </div>
           </div>
@@ -66,6 +77,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -10, filter: "blur(10px)" }}
             transition={{ duration: 0.45, ease: [0.2, 0.9, 0.2, 1] }}
+            className="ff-mesh ff-grain"
           >
             <DiscoveryDashboard
               profileSummary={profile}
@@ -85,6 +97,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -10, filter: "blur(10px)" }}
             transition={{ duration: 0.45, ease: [0.2, 0.9, 0.2, 1] }}
+            className="ff-mesh ff-grain"
           >
             <FinalPacket
               grant={selectedGrant}
