@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useGrants } from "@/hooks/use-grants";
 import { Grant } from "@shared/schema";
 import { GrantCard } from "@/components/GrantCard";
@@ -16,13 +16,71 @@ export function DiscoveryDashboard({
   onPickGrant,
   selectedGrantId,
 }: {
-  profileSummary: { role: string; year: string; program: string };
+  profileSummary: { role: string; year: string; program: string; interests?: string };
   selectedGrantId: number | null;
   onPickGrant: (grant: Grant) => void;
 }) {
   const { data, isLoading, error, refetch, isFetching } = useGrants();
   const [query, setQuery] = useState("");
   const [audience, setAudience] = useState<"All" | "Faculty" | "Grad Students" | "Undergrads">("All");
+  const [forgeLoading, setForgeLoading] = useState(false);
+  const [forgeError, setForgeError] = useState<string | null>(null);
+
+  // Call the forge endpoint when component mounts to get AI-matched grants
+  useEffect(() => {
+    const callForgeEndpoint = async () => {
+      // First, try to load existing grants immediately
+      await refetch();
+      
+      // Then call forge in the background to get fresh AI recommendations
+      setForgeLoading(true);
+      setForgeError(null);
+      try {
+        const cvText = profileSummary.interests 
+          ? `Research Interests: ${profileSummary.interests}` 
+          : '';
+        
+        const response = await fetch('/api/forge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            cvText,
+            profile: {
+              role: profileSummary.role,
+              year: profileSummary.year,
+              program: profileSummary.program,
+              interests: profileSummary.interests || ''
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to get AI grant recommendations');
+        }
+
+        const result = await response.json();
+        console.log('AI Grant Recommendations:', result);
+        
+        // Check if result was cached
+        if (result._cached) {
+          console.log('✓ Using cached recommendations');
+        }
+        
+        // The forge endpoint returns personalized matches from the knowledge base
+        // The grants are already in the database, so we just need to trigger a refetch
+        await refetch();
+      } catch (err) {
+        console.error('Forge endpoint error:', err);
+        setForgeError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setForgeLoading(false);
+      }
+    };
+
+    callForgeEndpoint();
+  }, [profileSummary, refetch]);
 
   const grants = data ?? [];
 
@@ -127,7 +185,7 @@ export function DiscoveryDashboard({
             </div>
 
             <div className="mt-6">
-              {isLoading ? (
+              {forgeLoading || isLoading ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <Card
@@ -141,13 +199,13 @@ export function DiscoveryDashboard({
                     </Card>
                   ))}
                 </div>
-              ) : error ? (
+              ) : error || forgeError ? (
                 <Card className="rounded-2xl border border-border/60 bg-card/35 p-6 backdrop-blur">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-lg font-semibold">Couldn’t load grants</div>
+                      <div className="text-lg font-semibold">Couldn't load grants</div>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {(error as Error)?.message || "Unknown error"}
+                        {forgeError || (error as Error)?.message || "Unknown error"}
                       </p>
                     </div>
                     <Button onClick={() => refetch()} className="bg-accent text-accent-foreground border border-accent/30">
@@ -193,7 +251,7 @@ export function DiscoveryDashboard({
           <Card className="ff-grain rounded-2xl border border-border/60 bg-card/35 p-6 backdrop-blur lg:sticky lg:top-28">
             <div className="text-sm font-semibold">Next step</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Select a grant to start forging the packet. You’ll see each agent step streamed live.
+              Select a grant to start forging the packet. You'll see each agent step streamed live.
             </p>
 
             <div className="mt-5 rounded-xl border border-border/60 bg-background/25 p-4">
@@ -217,7 +275,7 @@ export function DiscoveryDashboard({
             </Button>
 
             <p className="mt-3 text-xs text-muted-foreground">
-              This is a deterministic “smart default” based on your current filters.
+              This is a deterministic "smart default" based on your current filters.
             </p>
           </Card>
         </div>

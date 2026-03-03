@@ -23,9 +23,9 @@ function App() {
     window.location.href = "/";
   };
 
-  // Default to dark for the desired aesthetic
+  // Default to light mode
   React.useEffect(() => {
-    document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("dark");
   }, []);
 
   return (
