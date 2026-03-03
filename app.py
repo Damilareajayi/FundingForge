@@ -67,7 +67,14 @@ st.markdown("""
 /* ── Base ── */
 html, body { background: #F0F2F8 !important; }
 .stApp { background: #F0F2F8 !important; }
-* { font-family: 'IBM Plex Sans', sans-serif !important; box-sizing: border-box; }
+/* Scope font to text content only — do NOT use * here or Streamlit's
+   Material Symbols icon font gets overridden → icons render as "_arrow_right" text */
+body, p, li, label, div.stMarkdown, div.stText,
+[data-testid="stMarkdownContainer"],
+[data-testid="stCaptionContainer"],
+.stSelectbox label, .stTextArea label, .stFileUploader label,
+input, textarea, select { font-family: 'IBM Plex Sans', sans-serif; }
+* { box-sizing: border-box; }
 .main .block-container {
     padding-top: 0 !important;
     padding-bottom: 3rem !important;
@@ -223,17 +230,23 @@ hr { border-color: #E5E7EB !important; margin: 1.2rem 0 !important; }
     margin-bottom: 0;
 }
 .ff-logo { height: 42px; width: auto; }
+.ff-brand-block {
+    display: inline-flex; flex-direction: column; gap: 2px;
+}
 .ff-wordmark {
-    font-family: 'DM Sans', sans-serif !important;
+    font-family: 'DM Sans', sans-serif;
     font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em;
-    line-height: 1;
+    line-height: 1; display: block;
 }
 .ff-wordmark .ff { color: #782F40; }
 .ff-wordmark .gg { color: #CEB888; }
 .ff-tagline {
-    font-size: 0.75rem; color: #9CA3AF;
-    font-family: 'IBM Plex Sans', sans-serif !important;
-    margin-top: 2px;
+    font-size: 0.73rem; color: #9CA3AF;
+    font-family: 'IBM Plex Sans', sans-serif;
+    display: block;
+}
+.ff-nav-right {
+    margin-left: auto; display: inline-flex; align-items: center;
 }
 
 /* Stepper */
@@ -417,23 +430,24 @@ def _stepper(stage: str) -> str:
     return html
 
 
-def _nav(stage: str, right_extra: str = "") -> None:
-    logo_img = (f'<img src="data:image/png;base64,{_LOGO_B64}" class="ff-logo" />'
+def _nav(stage: str) -> None:
+    """Render the top navigation bar. Uses a flat single-level HTML structure
+    to prevent Streamlit's markdown renderer from emitting stray closing tags."""
+    logo_img = (f'<img src="data:image/png;base64,{_LOGO_B64}" class="ff-logo" alt="FundingForge" />'
                 if _LOGO_B64 else "")
-    st.markdown(
-        f"""<div class="ff-nav">
-            {logo_img}
-            <div>
-                <div class="ff-wordmark"><span class="ff">Funding</span><span class="gg">Forge</span></div>
-                <div class="ff-tagline">AI-Powered Grant Intelligence &nbsp;·&nbsp; FSU Research Office</div>
-            </div>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:16px">
-                {_stepper(stage)}
-                {right_extra}
-            </div>
-        </div>""",
-        unsafe_allow_html=True,
+    # Keep every child element on ONE line — no nested block tags so the
+    # Streamlit HTML sanitiser never produces orphan </div> text nodes.
+    nav_html = (
+        '<div class="ff-nav">'
+        + logo_img
+        + '<span class="ff-brand-block">'
+        +   '<span class="ff-wordmark"><span class="ff">Funding</span><span class="gg">Forge</span></span>'
+        +   '<span class="ff-tagline">AI-Powered Grant Intelligence &nbsp;&middot;&nbsp;</span>'
+        + '</span>'
+        + '<span class="ff-nav-right">' + _stepper(stage) + '</span>'
+        + '</div>'
     )
+    st.markdown(nav_html, unsafe_allow_html=True)
 
 
 def _build_report(result: dict) -> str:
@@ -447,7 +461,7 @@ def _build_report(result: dict) -> str:
             f"\n### Why This Grant Fits\n{m.get('grant_justification','')}\n",
             f"\n### Collaborator: {m.get('collaborator_name','')}\n",
             f"_{m.get('collaborator_department','')}_\n\n{m.get('collaborator_justification','')}\n",
-            f"\n### Draft Proposal\n{m.get('draft_proposal','')}\n",
+            f"\n### Proposal Assistant\n{m.get('draft_proposal','')}\n",
             f"\n### Outreach Email\n{m.get('draft_email','')}\n",
         ]
     return "\n".join(lines)
@@ -499,7 +513,7 @@ def render_intake() -> None:
         for icon, title, desc in [
             ("🎯", "Grant Matching",    "AI matches grants to your profile from our curated database"),
             ("📋", "Compliance Check",  "Policy & RAMP checklist verified against FSU requirements"),
-            ("✍️", "Proposal Draft",    "Full tailored proposal scaffold ready for your edits"),
+            ("✍️", "Proposal Assistant",    "Full tailored proposal scaffold ready for your edits"),
         ]:
             st.markdown(
                 f'<div class="feat-tile"><span class="feat-icon">{icon}</span>'
